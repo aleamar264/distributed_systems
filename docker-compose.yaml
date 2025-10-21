@@ -1,0 +1,39 @@
+services:
+  gateway:
+    build: ./gateway
+    ports:
+      - "8080:80"
+
+  central_coordinator:
+    build: ./central
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/central:/data
+
+  store_service_1:
+    build: ./store
+    environment:
+      - STORE_ID=1
+      - CENTRAL_URL=http://central_coordinator:8000
+    volumes:
+      - ./data/store1:/data
+    depends_on:
+      - central_coordinator
+
+  store_service_2:
+    build: ./store
+    environment:
+      - STORE_ID=2
+      - CENTRAL_URL=http://central_coordinator:8000
+    volumes:
+      - ./data/store2:/data
+    depends_on:
+      - central_coordinator
+
+  sync_worker:
+    build: ./sync_worker
+    depends_on:
+      - central_coordinator
+      - store_service_1
+      - store_service_2

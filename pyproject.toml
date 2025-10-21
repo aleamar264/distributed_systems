@@ -1,0 +1,223 @@
+[project]
+name = "meli"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.119.1",
+    "pydantic-settings>=2.11.0",
+    "sqlalchemy>=2.0.44",
+]
+
+[dependency-groups]
+dev = [
+    "icecream>=2.1.8",
+    "loguru>=0.7.3",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "ruff>=0.14.1",
+    "ty>=0.0.1a23",
+]
+observability = [
+    "logfire>=4.14.0",
+]
+
+[tool.pytest.ini_options]
+source = ["central_services","store_services", "tests"]
+asyncio_mode = "auto"
+addopts = "-vv --cache-clear -rA -p no:cacheprovider"
+python_files = "test_*.py"
+log_level = "DEBUG"
+testpaths = ["tests"]
+python_functions = "test_*"
+
+[tool.coverage.run]
+branch = true
+source = ["."]
+omit = ["*/__init__.py", "**/.env/**", "deploy/*"]
+relative_files = true
+
+
+[tool.coverage.report]
+exclude_also = ["if __name__ == .__main__.:"]
+omit = ["*/__init__.py", "**/.env/**", "deploy/*"]
+include = ["src/*", "tests/*"]
+
+
+[tool.coverage.html]
+title = "users Coverage"
+directory = "tests/coverage/report-html"
+
+[tool.coverage.xml]
+output = "reports/coverage/coverage.xml"
+
+
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+line-length = 88
+indent-width = 4
+src = ["central_services","store_services"]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex
+    "W191", # indentation contains tabs
+    "F811", # Redefinition of unused function pytest
+]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 80
+indent-style = "tab"
+quote-style = "double"
+
+[tool.ruff.lint.isort]
+known-third-party = ["fastapi", "pydantic", "starlette"]
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
+[tool.alembic]
+
+# path to migration scripts.
+# this is typically a path given in POSIX (e.g. forward slashes)
+# format, relative to the token %(here)s which refers to the location of this
+# ini file
+script_location = "%(here)s/alembic"
+
+# template used to generate migration file names; The default value is %%(rev)s_%%(slug)s
+# Uncomment the line below if you want the files to be prepended with date and time
+# see https://alembic.sqlalchemy.org/en/latest/tutorial.html#editing-the-ini-file
+# for all available tokens
+# file_template = "%%(year)d_%%(month).2d_%%(day).2d_%%(hour).2d%%(minute).2d-%%(rev)s_%%(slug)s"
+
+# additional paths to be prepended to sys.path. defaults to the current working directory.
+prepend_sys_path = [".", "./src"]
+
+# timezone to use when rendering the date within the migration file
+# as well as the filename.
+# If specified, requires the python>=3.9 or backports.zoneinfo library and tzdata library.
+# Any required deps can installed by adding `alembic[tz]` to the pip requirements
+# string value is passed to ZoneInfo()
+# leave blank for localtime
+# timezone =
+
+# max length of characters to apply to the "slug" field
+# truncate_slug_length = 40
+
+# set to 'true' to run the environment during
+# the 'revision' command, regardless of autogenerate
+# revision_environment = false
+
+# set to 'true' to allow .pyc and .pyo files without
+# a source .py file to be detected as revisions in the
+# versions/ directory
+# sourceless = false
+
+# version location specification; This defaults
+# to <script_location>/versions.  When using multiple version
+# directories, initial revisions must be specified with --version-path.
+# version_locations = [
+#    "%(here)s/alembic/versions",
+#    "%(here)s/foo/bar"
+# ]
+
+
+# set to 'true' to search source files recursively
+# in each "version_locations" directory
+# new in Alembic version 1.10
+# recursive_version_locations = false
+
+# the output encoding used when revision files
+# are written from script.py.mako
+# output_encoding = "utf-8"
+
+# This section defines scripts or Python functions that are run
+# on newly generated revision scripts.  See the documentation for further
+# detail and examples
+# [[tool.alembic.post_write_hooks]]
+# format using "black" - use the console_scripts runner,
+# against the "black" entrypoint
+# name = "black"
+# type = "console_scripts"
+# entrypoint = "black"
+# options = "-l 79 REVISION_SCRIPT_FILENAME"
+#
+[[tool.alembic.post_write_hooks]]
+# lint with attempts to fix using "ruff" - use the exec runner,
+# execute a binary
+name = "ruff"
+type = "exec"
+executable = "%(here)s/.venv/bin/ruff"
+options = "check --fix REVISION_SCRIPT_FILENAME"
+
+[tool.logfire]
+project_name = "MELI"
+console_color = "auto"
+token = "pylf_v1_us_CX95mxtQKvJbwpcTp6q2LzlxW928lMdC1SQSk5PK5SJZ"
+
+
+[tool.ty.environment]
+python = "./.venv"
+# Tailor type stubs and conditionalized type definitions to windows.
+python-platform = "linux"
+python-version = "3.13"
+root =  [".","./central_services",  "./store_services"]
+
+[tool.ty.src]
+include = [
+    "central_services",
+    "store_services"
+
+]
+
+[tool.ty.rules]
+unused-ignore-comment = "warn"
+redundant-cast = "ignore"
+possibly-missing-attribute = "error"
+possibly-missing-import = "error"

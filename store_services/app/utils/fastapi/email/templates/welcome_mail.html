@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Welcome to Your Service</title>
+    <style>
+      body {
+        background-color: #f4f4f7;
+        font-family: Arial, sans-serif;
+        color: #333333;
+        padding: 0;
+        margin: 0;
+      }
+      .email-container {
+        max-width: 600px;
+        margin: auto;
+        background-color: #ffffff;
+        padding: 30px;
+        border-radius: 8px;
+      }
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+      }
+      .header h1 {
+        color: #4a90e2;
+        margin: 0;
+      }
+      .content p {
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .cta-button {
+        display: inline-block;
+        padding: 12px 20px;
+        margin-top: 20px;
+        background-color: #4a90e2;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+      }
+      .footer {
+        margin-top: 30px;
+        font-size: 12px;
+        color: #999999;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="header">
+        <h1>Welcome to Your Service 🚀</h1>
+      </div>
+      <div class="content">
+        <p>Hi {{ full_name or "there" }},</p>
+        <p>
+          Thank you for joining <strong>Datahub</strong>! We're excited to
+          have you on board.
+        </p>
+        <p>
+          You can now explore our platform and get started with your account.
+          If you have any questions, feel free to reach out to our support
+          team.
+        </p>
+        <p>Welcome aboard!</p>
+        <p>— The Your Service Team</p>
+      </div>
+      <div class="footer">
+        <p>
+          You received this email because you signed up for Your Service.<br />
+          If you didn’t, you can safely ignore this message.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
