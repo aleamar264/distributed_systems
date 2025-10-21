@@ -1,23 +1,26 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from datetime import datetime, timedelta
 
-class ReadEnvDatabaseSettings(BaseSettings):
-	"""
-	Read Environment variables to get the basic configuration
-	of the database. In this case the file used is a .env called
-	`.database.env`
 
-	If you want to use other file
-	.. code-block:: python
-	    ReadEnvDatabaseSettings(_env_file="name_of_env_file")
+def jwt_expiration(delta_minutes: int):
+    return timedelta(minutes=delta_minutes)
 
-	"""  # noqa: E101
+class ReadEnvSettings(BaseSettings):
+    """
+    Read Environment variables to get the basic configuration
+    of the database. In this case the file used is a .env called
+    `.database.env`
 
-	drivername: str = Field("postgresql+asyncpg", description="Database Driver")
-	username: str = Field(..., description="Database Username")
-	password: str = Field(..., description="Database Password")
-	host: str = Field(..., description="Database Host")
-	database: str = Field(..., description="Database Name")
-	port: int = Field(..., description="Database Port")
+    If you want to use other file
+    .. code-block:: python
+        ReadEnvDatabaseSettings(_env_file="name_of_env_file")
 
-	model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    """  # noqa: E101
+
+    jwt_secrets: str = Field(..., description="Secret used for the JWT config", alias="JWT_SECRET ")
+    jwt_algorithm: str = Field("HS256", description="Algorith used in the JWT Auth", alias="JWT_ALGORITHM ")
+    database_url: str = Field(..., description="url or path for the sqlite db", alias="DATABASE_URL")
+    jwt_expiration: int = Field(15, description="Minutes to expire the JWT token", alias="JWT_EXPIRATION")
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
