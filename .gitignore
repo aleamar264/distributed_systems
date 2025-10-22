@@ -10,3 +10,11 @@ wheels/
 .venv
 */.env
 .env
+
+# Log files
+logs/
+*.log
+
+# Database files
+*.db
+*.sqlite3

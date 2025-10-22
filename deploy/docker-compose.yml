@@ -1,0 +1,53 @@
+version: '3.8'
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+
+  central:
+    build: ./central_services
+    environment:
+      - PORT=8000
+    ports:
+      - '8000:8000'
+
+  store1:
+    build: ./store_services
+    environment:
+      - PORT=8001
+      - SERVICE_NAME=store1
+      - CENTRAL_URL=http://central:8000
+      - BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+    ports:
+      - '8001:8001'
+
+  store1-worker:
+    build: ./store_services
+    command: celery -A app.tasks worker --loglevel=info
+    environment:
+      - BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+    depends_on:
+      - rabbitmq
+      - central
+
+  store1-beat:
+    build: ./store_services
+    command: celery -A app.tasks beat --loglevel=info --config=app.celeryconfig
+    environment:
+      - BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+    depends_on:
+      - rabbitmq
+      - central
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - '9090:9090'
+
+networks:
+  default:
+    driver: bridge

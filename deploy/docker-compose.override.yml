@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  central:
+    volumes:
+      - ../central_services:/app
+  store1:
+    volumes:
+      - ../store_services:/app
+  store1-worker:
+    volumes:
+      - ../store_services:/app
+    healthcheck:
+      test: ["CMD", "python", "app/bin/worker_healthcheck.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  store1-beat:
+    volumes:
+      - ../store_services:/app
+
+networks:
+  default:
+    driver: bridge
