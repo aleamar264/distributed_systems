@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 class TokenRequest(BaseModel):
     service_name: str
-    service_secrets: str
+    service_secret: str
 
 class TokenResponse(BaseModel):
     access_token: str

@@ -1,9 +1,7 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
-from status import Status
 
 
 class UpdateInventory(BaseModel):
@@ -12,13 +10,17 @@ class UpdateInventory(BaseModel):
     version: int
     operation_id: str = Field(..., description="Client-generated operation ID for idempotency")
 
+class UpdateInventoryResponse(BaseModel):
+    sku: str
+    quantity: int
+    vesion: int
 
 class InventoryResponse(BaseModel):
     sku: str
     name: str
     quantity: int
     version: int
-    updated_at: datetime
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -37,37 +39,6 @@ class GetDataFromSku(BaseModel):
     version: int
     model_config = ConfigDict(from_attributes=True)
 
-class TxnLine(BaseModel):
-    product_id: int
-    sku: str
-    delta: int = Field(..., description="Negative for reservation/sale; positive for restock")
-
-class TxnPrepareRquest(BaseModel):
-    txn_id: UUID
-    store_id: int
-    lines: list[TxnLine]
-    metadata: dict | None = None
-
-class TxnPrepareResponse(BaseModel):
-    txn_id: UUID
-    status: Status = Field(default=Status.success, example="prepared")
-    reaseon: None | str = None
-
-class TxnCommitRequest(BaseModel):
-    txn_id: UUID
-    store_id: int
-    idempotency_key: None | str = None
-
-class TxnCommitResponse(BaseModel):
-    txn_id: UUID
-    status: Status = Field(Status.commited, example="commited")
-    applied_at: datetime | None = None
-    reason: str | None = None
-
-class TxnAbortRequest(BaseModel):
-    txn_id: UUID
-    store_id: int
-    reason: str | None = None
 
 class GenericResponse(BaseModel):
     ok: bool

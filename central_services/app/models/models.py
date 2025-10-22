@@ -4,19 +4,19 @@ from typing import Annotated
 from sqlalchemy.dialects.sqlite import DATETIME, INTEGER, VARCHAR
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core.db import Base, MixInNameTable
+from .base import MixInNameTable, ModelBase
 
 primary_key = Annotated[int, mapped_column(INTEGER, primary_key=True)]
 
 
-class ServiceCredentials(Base, MixInNameTable):
+class ServiceCredentials(ModelBase, MixInNameTable):
     id: Mapped[primary_key]
     service_name: Mapped[str] = mapped_column(VARCHAR, unique=True, nullable=False)
     service_secret: Mapped[str] = mapped_column(VARCHAR, nullable=False)
     role: Mapped[str] = mapped_column(VARCHAR, default="store")
 
 
-class Inventory(Base, MixInNameTable):
+class Inventory(ModelBase, MixInNameTable):
     id: Mapped[primary_key]
     sku: Mapped[str] = mapped_column(VARCHAR(255), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
@@ -25,7 +25,7 @@ class Inventory(Base, MixInNameTable):
     updated_at: Mapped[datetime] = mapped_column(DATETIME, nullable=False, default=lambda: datetime.now(UTC))
 
 
-class IdempotencyKey(Base, MixInNameTable):
+class IdempotencyKey(ModelBase, MixInNameTable):
     """Tracks idempotency keys to prevent duplicate processing of retries.
 
     For prototype we store a short-lived record of the request and response.

@@ -1,24 +1,30 @@
-from datetime import UTC, datetime, timedelta
+import asyncio
+import logging
 from typing import Annotated
 
+from central_services.app.service.inventory import (
+	adjust_inventory_services,
+	get_idempotency,
+	get_item_from_sku,
+)
 from fastapi import APIRouter, Depends, Header, HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.utils import VerifiedService, get_db, verify_service_jwt
 from common.schemas import (
 	BulkSyncRequest,
-	ConflictError,
 	InventoryResponse,
 	UpdateInventory,
 )
-from models.models import IdempotencyKey, Inventory
+from models.models import Inventory
 from observability import (
-    inventory_updates_total,
-    inventory_update_conflicts_total,
-    inventory_update_failures_total,
-    bulk_sync_total,
+	bulk_sync_total,
+	inventory_update_failures_total,
+	inventory_updates_total,
 )
+
+logger = logging.getLogger("central_service")
 
 router = APIRouter(prefix="/v1", tags=["central"])
 
@@ -30,11 +36,7 @@ async def get_inventory(
 	service: Annotated[VerifiedService, Depends(verify_service_jwt)],
 ) -> InventoryResponse:
 	"""Get current inventory state for a SKU."""
-	result = await db.execute(select(Inventory).where(Inventory.sku == sku))
-	item = result.scalar_one_or_none()
-	if not item:
-		raise HTTPException(status_code=404, detail="SKU not found")
-	return item
+	return await get_item_from_sku(db=db, sku=sku)
 
 
 @router.post("/inventory/{sku}/adjust", response_model=InventoryResponse)
@@ -47,79 +49,24 @@ async def adjust_inventory(
 ) -> InventoryResponse:
 	"""Adjust inventory quantity for a SKU with optimistic locking."""
 	try:
-		# Check idempotency
-		idem_key = await db.execute(
-			select(IdempotencyKey).where(
-				IdempotencyKey.key == idempotency_key,
-				IdempotencyKey.service_name == service["service_name"],
-				IdempotencyKey.expires_at > datetime.now(UTC),
-			)
+		existing = get_idempotency(
+			db=db, idempotency_key=idempotency_key, service_name=service["service_name"]
 		)
-		existing = idem_key.scalar_one_or_none()
 		if existing:
-			# Return cached response for idempotent retry
-			result = await db.execute(select(Inventory).where(Inventory.sku == sku))
-			return result.scalar_one()
+			return await get_item_from_sku(db=db, sku=sku)
 
-		# Get current item state
-		result = await db.execute(
-			select(Inventory).where(Inventory.sku == sku).with_for_update()
+		updated = adjust_inventory_services(
+			db=db,
+			payload=payload,
+			sku=sku,
+			service_name=service["service_name"],
+			idempotency_key=idempotency_key,
 		)
-		item = result.scalar_one_or_none()
-		if not item:
-			raise HTTPException(status_code=404, detail="SKU not found")
-
-		if item.version != payload.version:
-			# Version mismatch - return 409 with current state
-			inventory_update_conflicts_total.inc()
-			raise HTTPException(
-				status_code=409,
-				detail=ConflictError(
-					message="Optimistic lock failed - item was updated",
-					current_state=InventoryResponse.model_validate(item),
-				).model_dump(),
-			)
-
-		# Apply update with version check
-		new_qty = item.quantity + payload.delta
-		if new_qty < 0:
-			raise HTTPException(
-				status_code=400,
-				detail=f"Insufficient quantity. Available: {item.quantity}, requested: {abs(payload.delta)}",
-			)
-
-		result = await db.execute(
-			update(Inventory)
-			.where(Inventory.sku == sku, Inventory.version == payload.version)
-			.values(
-				quantity=new_qty,
-				version=Inventory.version + 1,
-				updated_at=datetime.now(UTC),
-			)
-			.returning(Inventory)
-		)
-		updated = result.scalar_one()
-
-		# Store idempotency key (upsert-like behavior)
-		await db.execute(
-			update(IdempotencyKey)
-			.where(IdempotencyKey.key == idempotency_key)
-			.values(
-				service_name=service["service_name"],
-				request_hash=str(payload.model_dump()),
-				response_body=str(updated.model_dump()),
-				expires_at=datetime.now(UTC) + timedelta(hours=24),
-			)
-		)
-		await db.commit()
-
 		inventory_updates_total.inc()
 		return updated
 	except HTTPException:
-		# Let HTTP exceptions through (they're intentional)
 		raise
 	except Exception:
-		# Count unexpected failures
 		inventory_update_failures_total.inc()
 		raise
 
@@ -131,31 +78,53 @@ async def bulk_sync(
 	service: Annotated[VerifiedService, Depends(verify_service_jwt)],
 ) -> list[InventoryResponse]:
 	"""Process a batch of inventory updates for store sync."""
-	results = []
-	try:
-		for item in payload.items:
+	results: list[InventoryResponse] = []
+	semaphore = asyncio.Semaphore(10)
+
+	async def _process_item(item: UpdateInventory) -> InventoryResponse:
+		"""Process a single item from the bulk request.
+
+		Uses the existing `adjust_inventory` endpoint logic via internal call to
+		keep behaviour consistent (idempotency + optimistic locking).
+		If a conflict (409) occurs, return the current state from DB.
+		"""
+		async with semaphore:
 			try:
-				result = await adjust_inventory(
+				resp = await adjust_inventory(
 					item.sku,
 					item,
 					db,
 					service,
 					idempotency_key=f"bulk-{item.operation_id}",
 				)
-				results.append(result)
+				return resp
 			except HTTPException as e:
 				if e.status_code == 409:
-					# For bulk sync, if there's a conflict, just get latest
-					result = await db.execute(
-						select(Inventory).where(Inventory.sku == item.sku)
-					)
-					results.append(result.scalar_one())
-				else:
-					raise
-	except Exception:
+					# Conflict: return current state
+					logger.debug("Conflict during bulk-sync for SKU %s", item.sku)
+					result = await db.execute(select(Inventory).where(Inventory.sku == item.sku))
+					return result.scalar_one()
+				raise
+
+	# Launch tasks and gather results preserving order
+	try:
+		tasks = [asyncio.create_task(_process_item(it)) for it in payload.items]
+		# Use gather to aggregate results; propagate exceptions to caller
+		gathered = await asyncio.gather(*tasks)
+		results.extend(gathered)
+	except Exception as err:
 		inventory_update_failures_total.inc()
+		logger.exception("bulk_sync failed")
 		raise
 	finally:
 		bulk_sync_total.inc()
+
+	# count successful individual updates metric where applicable
+	try:
+		for _r in results:
+			# heuristically increment if item appears updated
+			inventory_updates_total.inc()
+	except Exception:
+		pass
 
 	return results

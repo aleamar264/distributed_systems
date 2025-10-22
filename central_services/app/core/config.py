@@ -14,8 +14,8 @@ class ReadEnvSettings(BaseSettings):
 
     """  # noqa: E101
 
-    jwt_secrets: str = Field(..., description="Secret used for the JWT config", alias="JWT_SECRET ")
-    jwt_algorithm: str = Field("HS256", description="Algorith used in the JWT Auth", alias="JWT_ALGORITHM ")
+    jwt_secrets: str = Field(..., description="Secret used for the JWT config", alias="JWT_SECRET")
+    jwt_algorithm: str = Field("HS256", description="Algorith used in the JWT Auth", alias="JWT_ALGORITHM")
     database_url: str = Field("sqlite+aiosqlite:///./central_inventory.db", description="url or path for the sqlite db", alias="DATABASE_URL")
     jwt_expiration: int = Field(15, description="Minutes to expire the JWT token", alias="JWT_EXPIRATION")
 
