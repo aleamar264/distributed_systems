@@ -1,62 +1,23 @@
-import uuid
 from datetime import UTC, datetime
 
-from fastapi import FastAPI, Request, Response
-from sqlalchemy import func, select
-from starlette.middleware.base import BaseHTTPMiddleware
-
-from utils.log_config import setup_logging
-
-# Setup structured logging
-logger = setup_logging("central_service")
-
-
+from fastapi import FastAPI, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from sqlalchemy import func, select
 
 from api.central import router as central_routes
 from auth.routes import router as auth_route
 from common.schemas import GenericResponse
 from core.db import session
-from logging_config import configure_logging
 from models.models import IdempotencyKey, Inventory
 from observability import REGISTRY, idempotency_keys_gauge, inventory_count_gauge
-
-# Configure structured logging
-configure_logging()
-
-
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        request_id = str(uuid.uuid4())
-        request.state.request_id = request_id
-        logger.info(f"Started request {request.method} {request.url}", extra={
-            "request_id": request_id,
-            "method": request.method,
-            "path": str(request.url),
-        })
-        
-        try:
-            response = await call_next(request)
-            logger.info(f"Completed request {request.method} {request.url}", extra={
-                "request_id": request_id,
-                "status_code": response.status_code,
-            })
-            return response
-        except Exception as e:
-            logger.error(f"Request failed: {str(e)}", extra={
-                "request_id": request_id,
-                "error": str(e),
-            }, exc_info=True)
-            raise
+from utils.logger_middleware import RequestLoggingMiddleware, logger
 
 app = FastAPI()
 app.include_router(central_routes)
 app.include_router(auth_route)
 
-# Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
-# Track process start for simple uptime metric
 START_TIME = datetime.now(UTC)
 logger.info("Central service started", extra={"start_time": START_TIME.isoformat()})
 

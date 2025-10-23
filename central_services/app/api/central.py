@@ -2,11 +2,6 @@ import asyncio
 import logging
 from typing import Annotated
 
-from central_services.app.service.inventory import (
-	adjust_inventory_services,
-	get_idempotency,
-	get_item_from_sku,
-)
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +17,11 @@ from observability import (
 	bulk_sync_total,
 	inventory_update_failures_total,
 	inventory_updates_total,
+)
+from service.inventory import (
+	adjust_inventory_services,
+	get_idempotency,
+	get_item_from_sku,
 )
 
 logger = logging.getLogger("central_service")
@@ -55,7 +55,7 @@ async def adjust_inventory(
 		if existing:
 			return await get_item_from_sku(db=db, sku=sku)
 
-		updated = adjust_inventory_services(
+		updated = await adjust_inventory_services(
 			db=db,
 			payload=payload,
 			sku=sku,
@@ -103,13 +103,13 @@ async def bulk_sync(
 					# Conflict: return current state
 					logger.debug("Conflict during bulk-sync for SKU %s", item.sku)
 					result = await db.execute(select(Inventory).where(Inventory.sku == item.sku))
-					return result.scalar_one()
+					item = result.scalar_one()
+					return InventoryResponse.model_validate(item)
 				raise
 
 	# Launch tasks and gather results preserving order
 	try:
 		tasks = [asyncio.create_task(_process_item(it)) for it in payload.items]
-		# Use gather to aggregate results; propagate exceptions to caller
 		gathered = await asyncio.gather(*tasks)
 		results.extend(gathered)
 	except Exception as err:
@@ -119,10 +119,8 @@ async def bulk_sync(
 	finally:
 		bulk_sync_total.inc()
 
-	# count successful individual updates metric where applicable
 	try:
 		for _r in results:
-			# heuristically increment if item appears updated
 			inventory_updates_total.inc()
 	except Exception:
 		pass

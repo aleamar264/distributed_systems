@@ -8,11 +8,12 @@ from fastapi.security import HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import _env
+from core.config import get_settings
 from core.db import session
 from models.models import ServiceCredentials
 
 security = HTTPBearer()
+settings = get_settings()
 
 class Token(TypedDict):
     iss: str
@@ -57,20 +58,18 @@ async def verify_service_jwt(
         payload = jwt.decode(
             token,
             service.service_secret,
-            algorithms=[_env.jwt_algorithm],
+            algorithms=[settings.jwt_algorithm],
             audience="central-service",
         )
-        if datetime.now(UTC) > payload["exp"]:
+        if datetime.now(UTC) > datetime.fromtimestamp(payload["exp"], UTC):
             raise credentials_exception
         return {"service_name": service_name, "role": service.role}
     except jwt.InvalidTokenError as e:
         raise credentials_exception from e
-    except Exception as e:
-        raise HTTPException(500, f"Auth error: {str(e)}") from e
 
 
 def create_access_token(data: Token) -> str:
     to_encode = data.copy()
-    expire = datetime.now(UTC) + timedelta(minutes=_env.jwt_expiration)
+    expire = datetime.now(UTC) + timedelta(minutes=settings.jwt_expiration)
     to_encode.update({"exp": expire, "aud": "central-service"})
-    return jwt.encode(to_encode, _env.jwt_secrets, algorithm=_env.jwt_algorithm)
+    return jwt.encode(to_encode, settings.jwt_secrets, algorithm=settings.jwt_algorithm)
