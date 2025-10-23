@@ -3,14 +3,12 @@ from enum import Enum
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from sqlalchemy import Enum as SQLEnum, Text
-from sqlalchemy import ForeignKey, Uuid
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import ForeignKey, Text, Uuid
 from sqlalchemy.dialects.sqlite import DATETIME, FLOAT, INTEGER, VARCHAR
 from sqlalchemy.orm import Mapped, mapped_column
-from utils.db.general import MixInNameTable
 
-from base import Base
-from status import Status
+from .base import Base, MixInNameTable
 
 primary_key = Annotated[int, mapped_column(INTEGER(), primary_key=True, index=True, unique=True)]
 

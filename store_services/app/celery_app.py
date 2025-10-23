@@ -1,8 +1,10 @@
 from celery import Celery
-from core.config import _env
+from core.config import get_settings
+
+settings = get_settings()
 
 # Broker URL from env (default to amqp://guest:guest@rabbitmq:5672//)
-broker = _env.broker_url if hasattr(_env, 'broker_url') else 'amqp://guest:guest@localhost:5672//'
+broker = settings.broker_url if hasattr(settings, 'broker_url') else 'amqp://guest:guest@localhost:5672//'
 
 celery_app = Celery('store_sync', broker=broker)
 

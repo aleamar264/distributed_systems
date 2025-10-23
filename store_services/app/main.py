@@ -1,46 +1,18 @@
-import logging
-import uuid
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Response
 from fastapi.security import HTTPBearer
-from sqlalchemy import select, func
-from starlette.middleware.base import BaseHTTPMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from sqlalchemy import func, select
 
 from common.schemas import GenericResponse
+from models.models import Inventory, PendingChange
+from utils.logger_middleware import RequestLoggingMiddleware, logger
+
 from .api.store import router as store_routes
 from .core.db import session
-from .models import Inventory, PendingChange
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from .observability import REGISTRY, inventory_count, pending_changes_gauge
-from utils.log_config import setup_logging
-
-# Setup structured logging
-logger = setup_logging("store_service")
-
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        request_id = str(uuid.uuid4())
-        request.state.request_id = request_id
-        logger.info(f"Started request {request.method} {request.url}", extra={
-            "request_id": request_id,
-            "method": request.method,
-            "path": str(request.url),
-        })
-        
-        try:
-            response = await call_next(request)
-            logger.info(f"Completed request {request.method} {request.url}", extra={
-                "request_id": request_id,
-                "status_code": response.status_code,
-            })
-            return response
-        except Exception as e:
-            logger.error(f"Request failed: {str(e)}", extra={
-                "request_id": request_id,
-                "error": str(e),
-            }, exc_info=True)
-            raise
+from services.sync_service_db import count
 
 app = FastAPI()
 bearer = HTTPBearer()
@@ -62,14 +34,12 @@ def health_check() -> GenericResponse:
 @app.get("/metrics", tags=["observability"])
 async def metrics():
     async with session() as db:
-        inv_res = await db.execute(select(func.count()).select_from(Inventory))
-        inv_count = inv_res.scalar_one()
-        pending_res = await db.execute(select(func.count()).select_from(PendingChange))
-        pending_count = pending_res.scalar_one()
+        inv_count = await count(db=db, model=Inventory)
+        pending_count = await count(db=db, model= PendingChange)
 
     # Update gauges
-    inventory_count.set(int(inv_count))
-    pending_changes_gauge.set(int(pending_count))
+    inventory_count.set(inv_count)
+    pending_changes_gauge.set(pending_count)
 
     # Return Prometheus text format
     output = generate_latest(REGISTRY)

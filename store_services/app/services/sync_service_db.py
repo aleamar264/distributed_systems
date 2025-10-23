@@ -1,0 +1,52 @@
+from collections.abc import Sequence
+
+from sqlalchemy import func, lambda_stmt, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from models.models import Inventory, PendingChange
+
+
+async def get_inventory(id: int, db: AsyncSession) -> Inventory:
+	"""Get product of the inventory using the id
+	Params:
+	    id (int): Id of the product in the inventory
+	    db (AsyncSession)
+	Return:
+	    Inventory
+	Raises:
+	    NoResultFound: If not result is found
+	"""
+	stmt = lambda_stmt(lambda: select(Inventory).where(Inventory.id == id))
+	result = await db.execute(stmt)
+	return result.scalar_one()
+
+
+async def update_model(id: int, db: AsyncSession, update_values: dict, model) -> None:
+	"""Update any model where the main filter is the id
+	Params:
+	    model (SqlAlchemyModel)
+	    update_values (dict): Dictionary with the fields to update
+	    db (AsyncSession)
+	    id (int): Id of the model to update
+	Return:
+	    None
+	"""
+
+	stmt = update(model).where(model.id == id).values(**update_values)
+	await db.execute(stmt)
+	await db.commit()
+
+
+async def get_pending_changes(db: AsyncSession, status: str) -> Sequence[PendingChange]:
+	stmt = lambda_stmt(
+		lambda: select(PendingChange)
+		.where(PendingChange.status == status)
+		.order_by(PendingChange.created_at)
+		.limit(100)
+	)
+	result = await db.execute(stmt)
+	return result.scalars().all()
+
+async def count(db:AsyncSession, model)->int:
+	res = await db.execute(select(func.count()).select_from(model))
+	return res.scalar_one()
