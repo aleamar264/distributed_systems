@@ -33,34 +33,27 @@ services:
 
   store1-worker:
     build: ../store_services
-    command: /app/.venv/bin/celery -A main.celery worker --loglevel=info -Q Store
+    command: /app/.venv/bin/celery -A main.celery worker --beat --loglevel=info -Q Store -E
+    # command: /app/.venv/bin/celery -A celery_app.celery_app worker --loglevel=info -Q Store -E
     environment:
       - BROKER_URL=amqp://foo:bar@rabbitmq:5672//
     depends_on:
       - rabbitmq
       - central
+      - store1
     volumes:
       - ../store_services/store_1.db:/app/store_1.db:rw
-  
-  store1-beat:
-    build: ../store_services
-    command: /app/.venv/bin/celery -A main.celery beat --loglevel=info
-    environment:
-      - BROKER_URL=amqp://foo:bar@rabbitmq:5672//
-    depends_on:
-      - rabbitmq
-      - central
-    volumes:
-      - ../store_services/store_1.db:/app/store_1.db:rw
-  
+    
   store1-flower:
     build: ../store_services
-    command: /app/.venv/bin/celery -A main.celery flower
+    command: /app/.venv/bin/celery -A main.celery flower --broker_api=http://foo:bar@rabbitmq:15672/api/
+    # command: /app/.venv/bin/celery -A celery_app.celery_app flower --broker_api=http://foo:bar@rabbitmq:15672/api/ --persistent=True --db=flower.db
     environment:
       - BROKER_URL=amqp://foo:bar@rabbitmq:5672//
     depends_on:
       - rabbitmq
-      - central
+      - store1-worker
+      # - central
     ports:
       - '5555:5555'
     

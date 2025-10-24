@@ -5,7 +5,9 @@ from fastapi.security import HTTPBearer
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from api.store import router as store_routes
+
 from celery_tools.config.celery_utils import create_celery
+# from celery_app import celery_app
 from common.schemas import GenericResponse
 from core.db import session
 from models.models import Inventory, PendingChange
@@ -15,6 +17,7 @@ from utils.logger_middleware import RequestLoggingMiddleware, logger
 
 app = FastAPI()
 app.celery_app = create_celery()
+# app.celery_app = celery_app
 bearer = HTTPBearer()
 app.include_router(store_routes)
 

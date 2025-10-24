@@ -81,14 +81,11 @@ style Logs fill:#F0E68C
 ```http
 # Get local inventory
 GET /v1/local/inventory/{sku}
-Authorization: Bearer <token>
 
 # Update local inventory
 POST /v1/local/inventory/{sku}/update
-Authorization: Bearer <token>
 
 {
-    "sku": "ABC123",
     "delta": -1,
     "operation_id": "uuid",
     "version": 1
@@ -96,11 +93,9 @@ Authorization: Bearer <token>
 
 # Check sync status
 GET /v1/local/sync/status/{operation_id}
-Authorization: Bearer <token>
 
 # Trigger sync manually
 POST /v1/local/sync/trigger
-Authorization: Bearer <token>
 ```
 
 ## Architectural Decisions
@@ -145,31 +140,18 @@ The store service implements a local-first approach with eventual consistency:
 
 1. Create virtual environment:
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+uv init .
 ```
 
 2. Install dependencies:
 ```bash
-pip install -e .
-```
-
-3. Configure environment:
-```bash
-cp .env.example .env
-# Edit .env with your settings
+uv sync
 ```
 
 4. Run components:
 ```bash
 # API Service
-uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
-
-# Celery Worker
-celery -A app.tasks worker --loglevel=info
-
-# Celery Beat (scheduler)
-celery -A app.tasks beat --loglevel=info
+uv run fastapi dev app/main.py
 ```
 
 ## Integration with Central Service
@@ -208,12 +190,12 @@ python bin/worker_healthcheck.py
 
 Run tests:
 ```bash
-pytest
+uv run pytest
 ```
 
 Run linting:
 ```bash
-ruff check .
+uv run ruff check .
 ```
 
 ## Docker Support
@@ -231,6 +213,19 @@ Service Components:
 
 ## Service Credentials
 ### Service 1:
-- qlDKAOp65mSGgtNNjMVRZO1bBPgDS5ArhZYc+YF1cjA=
+- Service name: inventory-service
+- service credentials: qlDKAOp65mSGgtNNjMVRZO1bBPgDS5ArhZYc+YF1cjA=
 ### Service 2:
+- Service name: order-service
 - ZJwzHrsaeQBckoBpMmrIoyiVJlSI+DJLfb5yt2wVtVo=
+
+This is important, because when you want to query the status of the inventory in the central, you need a Bearer token, this is gotten in the central services.
+
+```http
+POST /auth/token
+
+{
+  "service_name": "string",
+  "service_secret": "string"
+}
+```

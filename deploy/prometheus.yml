@@ -6,6 +6,6 @@ scrape_configs:
   - job_name: 'distributed_inventory'
     metrics_path: /metrics
     static_configs:
-      - targets: ['central:8000', 'store1:8001', 'store2:8002']
+      - targets: ['central:8000', 'store1:8001']
         labels:
           service: 'inventory'

@@ -204,10 +204,6 @@ type = "exec"
 executable = "%(here)s/.venv/bin/ruff"
 options = "check --fix REVISION_SCRIPT_FILENAME"
 
-[tool.logfire]
-project_name = "central_services"
-console_color = "auto"
-token = "pylf_v1_us_CX95mxtQKvJbwpcTp6q2LzlxW928lMdC1SQSk5PK5SJZ"
 
 [tool.uv.workspace]
 members = [

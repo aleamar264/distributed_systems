@@ -28,7 +28,6 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY app .
 COPY .env .env
-COPY central_inventory.db central_inventory.db
 
 # Run the application
 CMD ["/app/.venv/bin/granian", "--interface", "asgi", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "main:app"]
