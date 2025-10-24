@@ -4,7 +4,7 @@ from typing import Annotated, TypedDict
 
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +33,7 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
 
 async def verify_service_jwt(
     db: Annotated[AsyncSession, Depends(get_db)],
-    token: Annotated[str, Depends(security)],
+    token: Annotated[HTTPAuthorizationCredentials, Depends(security)],
 ) -> VerifiedService:
     """Verify JWT is signed by a known service and return the service details."""
     credentials_exception = HTTPException(
@@ -42,8 +42,8 @@ async def verify_service_jwt(
 		headers={"WWW-Authenticate": "Bearer"},
 	)
     try:
-        # First decode without verification to get issuer
-        unverified = jwt.decode(token, options={"verify_signature": False})
+    # First decode without verification to get issuer
+        unverified = jwt.decode(token.credentials, options={"verify_signature": False})
         service_name = unverified.get("iss")
         if not service_name:
             raise HTTPException(401, "Missing issuer claim")
@@ -56,8 +56,8 @@ async def verify_service_jwt(
         if not service:
             raise HTTPException(401, "Unknown service")
         payload = jwt.decode(
-            token,
-            service.service_secret,
+            token.credentials,
+            settings.jwt_secrets,
             algorithms=[settings.jwt_algorithm],
             audience="central-service",
         )

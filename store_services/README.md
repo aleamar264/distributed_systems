@@ -228,3 +228,9 @@ Service Components:
 - Celery worker
 - Celery beat
 - RabbitMQ
+
+## Service Credentials
+### Service 1:
+- qlDKAOp65mSGgtNNjMVRZO1bBPgDS5ArhZYc+YF1cjA=
+### Service 2:
+- ZJwzHrsaeQBckoBpMmrIoyiVJlSI+DJLfb5yt2wVtVo=

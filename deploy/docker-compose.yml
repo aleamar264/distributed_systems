@@ -1,46 +1,69 @@
 version: '3.8'
 services:
   rabbitmq:
-    image: rabbitmq:3.12-management
+    image: rabbitmq:4-management
     ports:
       - '5672:5672'
       - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: foo
+      RABBITMQ_DEFAULT_PASS: bar
 
   central:
-    build: ./central_services
+    build: ../central_services
     environment:
       - PORT=8000
     ports:
       - '8000:8000'
+    volumes:
+      - ../central_services/central_inventory.db:/app/central_inventory.db:rw
+
 
   store1:
-    build: ./store_services
+    build: ../store_services
     environment:
       - PORT=8001
-      - SERVICE_NAME=store1
+      - SERVICE_NAME=inventory-service
       - CENTRAL_URL=http://central:8000
-      - BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - BROKER_URL=amqp://foo:bar@rabbitmq:5672//
     ports:
       - '8001:8001'
+    volumes:
+      - ../store_services/store_1.db:/app/store_1.db:rw
 
   store1-worker:
-    build: ./store_services
-    command: celery -A app.tasks worker --loglevel=info
+    build: ../store_services
+    command: /app/.venv/bin/celery -A main.celery worker --loglevel=info -Q Store
     environment:
-      - BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - BROKER_URL=amqp://foo:bar@rabbitmq:5672//
     depends_on:
       - rabbitmq
       - central
-
+    volumes:
+      - ../store_services/store_1.db:/app/store_1.db:rw
+  
   store1-beat:
-    build: ./store_services
-    command: celery -A app.tasks beat --loglevel=info --config=app.celeryconfig
+    build: ../store_services
+    command: /app/.venv/bin/celery -A main.celery beat --loglevel=info
     environment:
-      - BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - BROKER_URL=amqp://foo:bar@rabbitmq:5672//
     depends_on:
       - rabbitmq
       - central
-
+    volumes:
+      - ../store_services/store_1.db:/app/store_1.db:rw
+  
+  store1-flower:
+    build: ../store_services
+    command: /app/.venv/bin/celery -A main.celery flower
+    environment:
+      - BROKER_URL=amqp://foo:bar@rabbitmq:5672//
+    depends_on:
+      - rabbitmq
+      - central
+    ports:
+      - '5555:5555'
+    
   prometheus:
     image: prom/prometheus:latest
     volumes:

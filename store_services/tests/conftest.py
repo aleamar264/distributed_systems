@@ -1,6 +1,8 @@
+from datetime import UTC, datetime, timedelta
 import os
 from unittest.mock import AsyncMock, patch
 
+import jwt
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,3 +47,15 @@ def reset_cache_get_service_token():
 	app.auth.client._token_cache = None
 	yield
 	app.auth.client._token_cache = None
+
+
+@pytest.fixture(scope="function")
+def auth_token():
+	to_encode ={
+        "iss": "dummy-store",
+        "sub": "dummy",
+        "role": "store"
+    }
+	expire = datetime.now(UTC) + timedelta(minutes=1)
+	to_encode.update({"exp": expire, "aud": "central-service"})
+	return jwt.encode(to_encode, "dummy-secret", algorithm="HS256")

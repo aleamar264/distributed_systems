@@ -1,22 +1,22 @@
 from datetime import UTC, datetime
 
-from fastapi import Depends, FastAPI, Response
+from fastapi import FastAPI, Response
 from fastapi.security import HTTPBearer
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from sqlalchemy import func, select
 
+from api.store import router as store_routes
+from celery_tools.config.celery_utils import create_celery
 from common.schemas import GenericResponse
+from core.db import session
 from models.models import Inventory, PendingChange
+from observability import REGISTRY, inventory_count, pending_changes_gauge
+from services.sync_service_db import count
 from utils.logger_middleware import RequestLoggingMiddleware, logger
 
-from .api.store import router as store_routes
-from .core.db import session
-from .observability import REGISTRY, inventory_count, pending_changes_gauge
-from services.sync_service_db import count
-
 app = FastAPI()
+app.celery_app = create_celery()
 bearer = HTTPBearer()
-app.include_router(store_routes, dependencies=[Depends(bearer)])
+app.include_router(store_routes)
 
 # Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
@@ -44,3 +44,6 @@ async def metrics():
     # Return Prometheus text format
     output = generate_latest(REGISTRY)
     return Response(content=output, media_type=CONTENT_TYPE_LATEST)
+
+
+celery = app.celery_app  # type: ignore

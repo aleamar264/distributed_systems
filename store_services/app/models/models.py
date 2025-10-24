@@ -4,62 +4,70 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey, Text, Uuid
+from sqlalchemy import ForeignKey, Text
 from sqlalchemy.dialects.sqlite import DATETIME, FLOAT, INTEGER, VARCHAR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, MixInNameTable
 
-primary_key = Annotated[int, mapped_column(INTEGER(), primary_key=True, index=True, unique=True)]
+primary_key = Annotated[
+	int, mapped_column(INTEGER(), primary_key=True, index=True, unique=True)
+]
 
 
-class SyncStatus(str, Enum):
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
+class SyncStatus(Enum):
+	PENDING = "pending"
+	IN_PROGRESS = "in_progress"
+	COMPLETED = "completed"
+	FAILED = "failed"
 
 
 class Products(Base, MixInNameTable):
-    id: Mapped[primary_key]
-    sku: Mapped[str] = mapped_column(VARCHAR(255), unique=True, index=True, nullable=False)
-    name: Mapped[str] = mapped_column(VARCHAR(255), unique=True, nullable=False)
-    price: Mapped[float] = mapped_column(FLOAT(), nullable=False, unique=False, index=True)
+	id: Mapped[primary_key]
+	sku: Mapped[str] = mapped_column(
+		VARCHAR(255), unique=True, index=True, nullable=False
+	)
+	name: Mapped[str] = mapped_column(VARCHAR(255), unique=True, nullable=False)
+	price: Mapped[float] = mapped_column(
+		FLOAT(), nullable=False, unique=False, index=True
+	)
 
 
 class Inventory(Base, MixInNameTable):
-    """Local inventory state."""
-    id: Mapped[primary_key]
-    sku: Mapped[str] = mapped_column(VARCHAR(255), unique=True, nullable=False)
-    name: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
-    quantity: Mapped[int] = mapped_column(INTEGER, nullable=False, default=0)
-    version: Mapped[int] = mapped_column(INTEGER, nullable=False, default=1)
-    updated_at: Mapped[datetime] = mapped_column(
-        DATETIME, nullable=False, default=lambda: datetime.now(UTC)
-    )
-    last_synced_at: Mapped[datetime] = mapped_column(
-        DATETIME, nullable=True
-    )
+	"""Local inventory state."""
+
+	id: Mapped[primary_key]
+	sku: Mapped[str] = mapped_column(VARCHAR(255), unique=True, nullable=False)
+	name: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
+	quantity: Mapped[int] = mapped_column(INTEGER, nullable=False, default=0)
+	version: Mapped[int] = mapped_column(INTEGER, nullable=False, default=1)
+	updated_at: Mapped[datetime] = mapped_column(
+		DATETIME, nullable=False, default=lambda: datetime.now(UTC)
+	)
+	last_synced_at: Mapped[datetime] = mapped_column(DATETIME, nullable=True)
 
 
 class PendingChange(Base, MixInNameTable):
-    """Track changes that need to be synced to central."""
-    id: Mapped[primary_key]
-    operation_id: Mapped[str] = mapped_column(
-        VARCHAR(255), unique=True, nullable=False, default=lambda: str(uuid4())
-    )
-    inventory_id: Mapped[int] = mapped_column(ForeignKey("inventory.id"))
-    sku: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
-    delta: Mapped[int] = mapped_column(INTEGER, nullable=False)
-    local_version: Mapped[int] = mapped_column(INTEGER, nullable=False)
-    central_version: Mapped[int] = mapped_column(INTEGER, nullable=True)
-    status: Mapped[str] = mapped_column(
-        SQLEnum(SyncStatus), nullable=False, default=SyncStatus.PENDING
-    )
-    error: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DATETIME, nullable=False, default=lambda: datetime.now(UTC)
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DATETIME, nullable=False, default=lambda: datetime.now(UTC)
-    )
+	"""Track changes that need to be synced to central."""
+
+	id: Mapped[primary_key]
+	operation_id: Mapped[str] = mapped_column(
+		VARCHAR(255), unique=True, nullable=False, default=lambda: str(uuid4())
+	)
+	inventory_id: Mapped[int] = mapped_column(ForeignKey("inventory.id"))
+	sku: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
+	delta: Mapped[int] = mapped_column(INTEGER, nullable=False)
+	local_version: Mapped[int] = mapped_column(INTEGER, nullable=False)
+	central_version: Mapped[int] = mapped_column(INTEGER, nullable=True)
+	status: Mapped[str] = mapped_column(
+		VARCHAR(20),
+		nullable=False,
+		default="pending",
+	)
+	error: Mapped[str] = mapped_column(Text, nullable=True)
+	created_at: Mapped[datetime] = mapped_column(
+		DATETIME, nullable=False, default=lambda: datetime.now(UTC)
+	)
+	updated_at: Mapped[datetime] = mapped_column(
+		DATETIME, nullable=False, default=lambda: datetime.now(UTC)
+	)

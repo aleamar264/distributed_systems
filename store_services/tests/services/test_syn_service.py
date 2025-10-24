@@ -149,7 +149,7 @@ async def test_process_change_success(db):
 		sku="test-sku",
 		operation_id="test-op",
 		inventory_id=1,
-		status=SyncStatus.PENDING,
+		status=SyncStatus.PENDING.value,
 	)
 	with patch(f"{PATH_TO_SYNC_SERVICES}.push_inventory_update") as mock_push:
 		mock_push.return_value = (True, None)
@@ -166,7 +166,7 @@ async def test_process_change_failure(db):
 		sku="test-sku",
 		operation_id="test-op",
 		inventory_id=1,
-		status=SyncStatus.PENDING,
+		status=SyncStatus.PENDING.value,
 	)
 
 	with patch(f"{PATH_TO_SYNC_SERVICES}.push_inventory_update") as mock_push:
@@ -185,7 +185,7 @@ async def test_process_change_failure_exception(mock_update_model, mock_push, db
 		sku="test-sku",
 		operation_id="test-op",
 		inventory_id=1,
-		status=SyncStatus.PENDING,
+		status=SyncStatus.PENDING.value,
 	)
 	mock_push.side_effect = Exception()
 	with pytest.raises(Exception) as err:
@@ -228,7 +228,7 @@ async def test_process_pending_once_success(
             sku=f"test-sku-{i}",
             operation_id=f"test-op-{i}",
             inventory_id=1,
-            status=SyncStatus.PENDING,
+            status=SyncStatus.PENDING.value,
         )
         for i in range(3)
     ]
@@ -272,7 +272,7 @@ async def test_process_pending_once_partial_success(
 			sku=f"test-sku-{i}",
 			operation_id=f"test-op-{i}",
 			inventory_id=1,
-			status=SyncStatus.PENDING,
+			status=SyncStatus.PENDING.value,
 		)
 		for i in range(3)
 	]

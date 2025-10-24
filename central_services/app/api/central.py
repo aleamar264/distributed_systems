@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime
 import logging
 from typing import Annotated
 
@@ -12,7 +13,7 @@ from common.schemas import (
 	InventoryResponse,
 	UpdateInventory,
 )
-from models.models import Inventory
+from models.models import IdempotencyKey, Inventory
 from observability import (
 	bulk_sync_total,
 	inventory_update_failures_total,
@@ -20,6 +21,7 @@ from observability import (
 )
 from service.inventory import (
 	adjust_inventory_services,
+	create_idempotency,
 	get_idempotency,
 	get_item_from_sku,
 )
@@ -49,9 +51,18 @@ async def adjust_inventory(
 ) -> InventoryResponse:
 	"""Adjust inventory quantity for a SKU with optimistic locking."""
 	try:
-		existing = get_idempotency(
+		existing = await get_idempotency(
 			db=db, idempotency_key=idempotency_key, service_name=service["service_name"]
 		)
+		logger.info(f"Idempotency: {existing}")
+		if not existing:
+			idepotency = IdempotencyKey(
+				key=idempotency_key, service_name=service["service_name"],
+				request_hash=hash(payload.model_dump_json()),
+				response_body="",
+				created_at=datetime.now(UTC)
+			)
+			await create_idempotency(db=db, idempotency=idepotency)
 		if existing:
 			return await get_item_from_sku(db=db, sku=sku)
 
@@ -102,7 +113,9 @@ async def bulk_sync(
 				if e.status_code == 409:
 					# Conflict: return current state
 					logger.debug("Conflict during bulk-sync for SKU %s", item.sku)
-					result = await db.execute(select(Inventory).where(Inventory.sku == item.sku))
+					result = await db.execute(
+						select(Inventory).where(Inventory.sku == item.sku)
+					)
 					item = result.scalar_one()
 					return InventoryResponse.model_validate(item)
 				raise

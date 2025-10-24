@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+import logging
 from typing import Any
 
 from fastapi import HTTPException
@@ -18,6 +19,7 @@ from observability import (
 )
 
 
+logger = logging.getLogger("central_service")
 async def get_data_from_sku(sku: str, db: AsyncSession) -> GetDataFromSku:
 	"""Get data from sku. The data retrieve is the id, quantity and version of the Inventory
 	Params:
@@ -82,6 +84,10 @@ async def get_item_from_sku(
 	return item
 
 
+async def create_idempotency(db:AsyncSession, idempotency: IdempotencyKey):
+	db.add(idempotency)
+	await db.commit()
+
 async def get_idempotency(
 	idempotency_key: str, service_name: str, db: AsyncSession
 ) -> IdempotencyKey | None:
@@ -123,6 +129,7 @@ async def update_idempotency(
 		.where(IdempotencyKey.key == idempotency_key)
 		.values(**update_values)
 	)
+	await db.commit()
 
 
 async def update_inventory_return(
@@ -134,6 +141,7 @@ async def update_inventory_return(
 		.values(**update_values)
 		.returning(Inventory)
 	)
+	await db.commit()
 	return result.scalar_one()
 
 
@@ -146,6 +154,8 @@ async def adjust_inventory_services(
 ) -> Inventory:
 	# Get current item state
 	item = await get_item_from_sku(db=db, retrieve_for_update=True, sku=sku)
+	logger.info(f"Item version:{item.version}")
+	logger.info(f"Payload version {payload.version}")
 	if item.version != payload.version:
 		inventory_update_conflicts_total.inc()
 		raise HTTPException(
@@ -157,6 +167,7 @@ async def adjust_inventory_services(
 		)
 
 	new_qty = item.quantity + payload.delta
+	logger.info(f"New qty: {new_qty}")
 	if new_qty < 0:
 		inventory_update_failures_total.inc()
 		raise HTTPException(
@@ -174,16 +185,16 @@ async def adjust_inventory_services(
 			"updated_at": datetime.now(UTC),
 		},
 	)
-
+	logger.info(f"vesion: {updated.version}, qty: {updated.quantity}")
 	# Store idempotency key (upsert-like behavior)
 	await update_idempotency(
 		db=db,
 		idempotency_key=idempotency_key,
 		update_values={
 			"service_name": service_name,
-			"request_hash": str(payload.model_dump()),
-			"response_body": str(
-				InventoryResponse.model_validate(updated).model_dump()
+			"request_hash": hash(payload.model_dump_json()),
+			"response_body": hash(
+				InventoryResponse.model_validate(updated).model_dump_json()
 			),
 			"expires_at": datetime.now(UTC) + timedelta(hours=24),
 		},

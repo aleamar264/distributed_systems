@@ -82,18 +82,16 @@ async def push_inventory_update(
 		}
 		item = await get_inventory(id=change.inventory_id, db=db)
 		update = UpdateInventory(
-			sku=change.sku,
 			delta=change.delta,
 			version=change.central_version or item.version,
 			operation_id=change.operation_id,
 		)
-
 		async with httpx.AsyncClient() as client:
 			start_push = datetime.now(UTC)
 			response: httpx.Response = await with_retry(
 				lambda: client.post(
-					f"{settings.central_url}/v1/inventory/{change.sku}/adjust",
-					json=update.model_dump(),
+					f"{settings.central_url}v1/inventory/{change.sku}/adjust",
+					json={**update.model_dump(), **{"sku": item.sku}},
 					headers=headers,
 				)
 			)
@@ -162,7 +160,7 @@ async def process_change(db: AsyncSession, change: PendingChange) -> bool:
 			id=change.id,
 			db=db,
 			update_values={
-				"status": SyncStatus.IN_PROGRESS,
+				"status": SyncStatus.IN_PROGRESS.value,
 				"updated_at": datetime.now(UTC),
 			},
 		)
@@ -175,7 +173,7 @@ async def process_change(db: AsyncSession, change: PendingChange) -> bool:
 			id=change.id,
 			db=db,
 			update_values={
-				"status": SyncStatus.COMPLETED if success else SyncStatus.FAILED,
+				"status": SyncStatus.COMPLETED.value if success else SyncStatus.FAILED.value,
 				"error": error,
 				"updated_at": datetime.now(UTC),
 			},
@@ -190,7 +188,7 @@ async def process_change(db: AsyncSession, change: PendingChange) -> bool:
 			id=change.id,
 			db=db,
 			update_values={
-				"status": SyncStatus.FAILED,
+				"status": SyncStatus.FAILED.value,
 				"error": "internal error",
 				"updated_at": datetime.now(UTC),
 			},
@@ -200,16 +198,17 @@ async def process_change(db: AsyncSession, change: PendingChange) -> bool:
 async def process_pending_once() -> int:
 	"""Process a batch of pending changes once. Returns number processed."""
 	processed = 0
+	logger.info("Looking for changes")
+	start = datetime.now(UTC)
 	async with session() as db:
 		try:
 			# Get pending changes and update metrics
 			changes = await get_pending_changes(db=db, status=SyncStatus.PENDING)
+			logger.info(changes)
 			await update_metrics(db)
 
 			if not changes:
 				return 0
-
-			start = datetime.now(UTC)
 
 			# Process changes concurrently in small batches
 			batch_size = 5  # Adjust based on your needs

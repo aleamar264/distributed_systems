@@ -16,7 +16,7 @@ class ReadEnvSettings(BaseSettings):
         ReadEnvDatabaseSettings(_env_file="name_of_env_file")
 
     """  # noqa: E101
-    central_url: HttpUrl = Field("http://central-service:8000", description="URL for the central services", alias="CENTRAL_URL")
+    central_url: HttpUrl = Field("http://central:8000", description="URL for the central services", alias="CENTRAL_URL")
     service_name: str = Field("store-1", description="Name of the services (this is unique)", alias="SERVICE_NAME")
     services_secret: str = Field(..., description="Secret used for the services", alias="SERVICE_SECRET")
     jwt_secrets: str = Field(..., description="Secret used for the JWT config", alias="JWT_SECRET")
