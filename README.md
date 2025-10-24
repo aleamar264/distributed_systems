@@ -1,6 +1,10 @@
 # Services
 For more information about the services, in each folder `central_services` and `store_services`
 
+Also, like in this moment is only a prototype (and a technical test), we don't worry about the variables inside the `.env` file,
+all of this is fake and don't compromise the security. If the implementation is for real world, all the file .env should be added to the
+.gitignore and use safe measures like GITHUB_SECRETS or secret manager in the cloud.
+
 ## High level diagram
 ```mermaid
 sequenceDiagram

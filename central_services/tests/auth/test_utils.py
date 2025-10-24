@@ -3,6 +3,7 @@ import os
 from unittest.mock import patch, AsyncMock, Mock
 
 from fastapi import HTTPException, Header, status
+from fastapi.security import HTTPAuthorizationCredentials
 import jwt
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +29,7 @@ async def test_verify_service_jwt_success():
     service_secret = "svc-secret"
     expire = datetime.now(UTC) + timedelta(hours=1)
     payload = {"iss": "dummy", "sub": "sub", "role": "store", "exp": expire, "aud": "central-service"}
-    token = jwt.encode(payload, service_secret, algorithm="HS256")
+    token = HTTPAuthorizationCredentials(credentials=jwt.encode(payload, service_secret, algorithm="HS256"), scheme="Bearer")
 
     # prepare mock db to return a ServiceCredentials with matching secret
     service = ServiceCredentials(id=1, service_name="dummy", service_secret=service_secret, role="store")
@@ -47,7 +48,7 @@ async def test_verify_service_jwt_unknown_service():
     secret = "any-secret"
     expire = datetime.now(UTC) + timedelta(hours=1)
     payload = {"iss": "unknown-svc", "sub": "x", "role": "r", "exp": expire, "aud": "central-service"}
-    token = jwt.encode(payload, secret, algorithm="HS256")
+    token = HTTPAuthorizationCredentials(credentials=jwt.encode(payload, secret, algorithm="HS256"), scheme="Bearer")
 
     mock_result = Mock()
     mock_result.scalar_one_or_none.return_value = None
@@ -66,7 +67,8 @@ async def test_verify_service_jwt_invalid_signature():
     bad_secret = "bad-secret"
     expire = datetime.now(UTC) + timedelta(hours=1)
     payload = {"iss": "dummy", "sub": "s", "role": "r", "exp": expire, "aud": "central-service"}
-    token = jwt.encode(payload, bad_secret, algorithm="HS256")
+    token = HTTPAuthorizationCredentials(credentials=jwt.encode(payload, bad_secret, algorithm="HS256"), scheme="Bearer")
+
 
     service = ServiceCredentials(id=1, service_name="dummy", service_secret=real_secret, role="store")
     mock_result = Mock()
