@@ -152,24 +152,17 @@ The system prioritizes consistency over availability for several reasons:
 
 1. Create virtual environment:
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+uv init .
 ```
 
 2. Install dependencies:
 ```bash
-pip install -e .
+uv sync
 ```
 
-3. Configure environment:
+3. Run the service:
 ```bash
-cp .env.example .env
-# Edit .env with your settings
-```
-
-4. Run the service:
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uv run fastapi dev app/main.py
 ```
 
 ## Integration with Store Services
@@ -203,10 +196,15 @@ Access monitoring endpoints:
 
 Run tests:
 ```bash
-pytest
+uv run pytest
 ```
 
 Run linting:
 ```bash
-ruff check .
+uv run ruff check .
+```
+
+## Run with Docker Compose:
+```bash
+docker-compose up -d
 ```
