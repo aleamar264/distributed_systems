@@ -1,13 +1,15 @@
-from datetime import UTC, datetime, timedelta
 import os
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import jwt
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-
+from app.main import app
+from app.core.db import get_db
 
 @pytest.fixture
 def db():
@@ -59,3 +61,4 @@ def auth_token():
 	expire = datetime.now(UTC) + timedelta(minutes=1)
 	to_encode.update({"exp": expire, "aud": "central-service"})
 	return jwt.encode(to_encode, "dummy-secret", algorithm="HS256")
+

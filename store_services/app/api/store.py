@@ -12,13 +12,17 @@ from core.db import get_db
 from models.models import Inventory, PendingChange, SyncStatus
 from observability import local_updates_total
 from services.api_services import get_inventory_by_sku, get_pending_change
+from services.sync_service import process_pending_once
 from services.sync_service_db import get_inventory as getInventory
 from services.sync_service_db import get_pending_change_by_sku, update_model
 
 try:
 	from celery_tools.celery_tasks.tasks import process_pending_once_task
+	CELERY_AVAILABLE = True
 except Exception:
 	process_pending_once_task = None
+	CELERY_AVAILABLE = False
+
 
 
 router = APIRouter(prefix="/v1/local", tags=["store"])
@@ -136,14 +140,13 @@ async def get_sync_status(
 @router.post("/sync/trigger")
 async def trigger_sync(background: BackgroundTasks):
 	"""Trigger a sync run: schedule via Celery if available, otherwise run background async task."""
-	if process_pending_once_task:
+	if CELERY_AVAILABLE and process_pending_once_task:
+		print("I'm here")
 		# Enqueue Celery task
 		process_pending_once_task.delay()
 		return GenericResponse(ok=True, message="Sync enqueued via Celery")
 
 	# Fallback: run in background (best-effort)
-	from services.sync_service import process_pending_once
-
 	async def _run_once():
 		await process_pending_once()
 

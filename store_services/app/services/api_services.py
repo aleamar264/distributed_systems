@@ -1,4 +1,3 @@
-from ast import Assert
 from logging import Logger
 
 from fastapi import HTTPException, Request

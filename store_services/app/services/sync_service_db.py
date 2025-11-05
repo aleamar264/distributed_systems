@@ -55,7 +55,7 @@ async def get_pending_change_by_sku(db: AsyncSession, sku: str) -> str:
 	result = await db.execute(stmt)
 	item = result.first()
 	if not item:
-		raise HTTPException(status_code=404, detail="No item for change for SKU {sku}")
+		raise HTTPException(status_code=404, detail=f"No item for change for SKU {sku}")
 	return item.operation_id
 
 async def count(db:AsyncSession, model)->int:
